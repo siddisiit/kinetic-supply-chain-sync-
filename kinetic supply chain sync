@@ -1,0 +1,46 @@
+import pandas as pd
+import numpy as np
+from scipy.spatial.distance import cdist
+
+FACTORY_COORDS = np.array([[41.8781, -87.6298]]) # Chicago Hub
+CRITICAL_THRESHOLD_HOURS = 10.0
+
+# 2. Live Shipment Data (With fixed truck speeds)
+shipments_data = {
+    'shipment_id': ['SHIP_001', 'SHIP_002', 'SHIP_003'],
+    'component_part': ['Microchips', 'Steel Frames', 'Lithium Batteries'],
+    'current_lat': [40.7128, 42.3601, 34.0522],  
+    'current_lon': [-74.0060, -71.0589, -118.2437], 
+    'base_speed_mph': [55, 60, 50],  # Fixed values added here
+    'live_delay_hours': [2.5, 0.0, 4.1] 
+}
+df_supply = pd.DataFrame(shipments_data)
+
+# 3. Calculate Kinetic ETA
+def calculate_kinetic_eta(row):
+    truck_coords = np.array([[row['current_lat'], row['current_lon']]])
+    # Approximate physical miles via simple multiplier
+    distance_miles = cdist(FACTORY_COORDS, truck_coords, 'euclidean')[0][0] * 69.0
+    transit_time = distance_miles / row['base_speed_mph']
+    return round(transit_time + row['live_delay_hours'], 2)
+
+df_supply['calculated_eta_hours'] = df_supply.apply(calculate_kinetic_eta, axis=1)
+
+# 4. Automated Decision Engine
+print("=== KINETIC SUPPLY CHAIN RISK REPORT ===")
+for index, row in df_supply.iterrows():
+    eta = row['calculated_eta_hours']
+    part = row['component_part']
+    
+    if eta > CRITICAL_THRESHOLD_HOURS:
+        print(f"⚠️ RISK DETECTED: {part} will arrive late ({eta} hrs).")
+        print(f"🤖 SYSTEM ACTION: Triggering local emergency backup order for {part}.\n")
+    else:
+        print(f"✅ SECURE: {part} arrival on track ({eta} hrs).\n")
+
+# 5. Output Synchronized Schedule
+synchronized_schedule = df_supply.sort_values(by='calculated_eta_hours')
+print("=== OPTIMIZED MANUFACTURING QUEUE ===")
+print(synchronized_schedule[['shipment_id', 'component_part', 'calculated_eta_hours']])
+
+
